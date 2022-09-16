@@ -59,7 +59,7 @@ func main() {
 
 	defer session.Close()
 
-	cmd := fmt.Sprintf("env DISPLAY=:0 /home/amos/scripts/luakit %s", params())
+	cmd := fmt.Sprintf("env DISPLAY=:0 /home/amos/scripts/luakit \"%s\"", params())
 	var b bytes.Buffer
 	session.Stdout = &b
 	if err := session.Run(cmd); err != nil {
