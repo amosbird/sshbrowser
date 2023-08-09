@@ -1,14 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
-	"log"
+	"net"
 	"os"
-
-	"golang.org/x/crypto/ssh"
-	"golang.org/x/sys/windows/registry"
 )
 
 func params() string {
@@ -19,50 +14,26 @@ func params() string {
 }
 
 func main() {
-	pkey, err := ioutil.ReadFile("C:/Users/Administrator/.ssh/id_rsa")
-	// pkey, err := ioutil.ReadFile("/home/amos/.ssh/id_rsa")
+	serverAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:9991")
 	if err != nil {
-		panic("ioutil.ReadFile(sshkey):" + err.Error())
+		fmt.Println("Error resolving UDP address:", err)
+		return
 	}
 
-	s, err := ssh.ParsePrivateKey(pkey)
+	conn, err := net.DialUDP("udp", nil, serverAddr)
 	if err != nil {
-		panic("ssh.ParsePrivateKey(): " + err.Error())
+		fmt.Println("Error creating UDP connection:", err)
+		return
 	}
+	defer conn.Close()
 
-	k, err := registry.OpenKey(registry.CURRENT_USER, `Environment`, registry.QUERY_VALUE)
+	message := fmt.Sprintf("%s\n", params())
+
+	buffer := []byte(message)
+
+	_, err = conn.Write(buffer)
 	if err != nil {
-		log.Fatal(err)
-	}
-	defer k.Close()
-
-	hostport, _, err := k.GetStringValue("CLIENTNAME")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	client, err := ssh.Dial("tcp", hostport, &ssh.ClientConfig{
-		User: "amos",
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(s),
-		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-	})
-	if err != nil {
-		log.Fatalf("SSH dial error: %s", err.Error())
-	}
-
-	session, err := client.NewSession()
-	if err != nil {
-		log.Fatalf("new session error: %s", err.Error())
-	}
-
-	defer session.Close()
-
-	cmd := fmt.Sprintf("env DISPLAY=:0 /home/amos/scripts/luakit \"%s\"", params())
-	var b bytes.Buffer
-	session.Stdout = &b
-	if err := session.Run(cmd); err != nil {
-		panic("Failed to run: " + err.Error())
+		fmt.Println("Error sending UDP packet:", err)
+		return
 	}
 }
